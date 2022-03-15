@@ -1,0 +1,4 @@
+ortools==7.3.7083
+protobuf==3.17.3
+six==1.16.0
+tabulate==0.8.9
