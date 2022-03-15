@@ -13,7 +13,7 @@ This is what this script is doing, created as a proof of concept with some artif
 
 Create virtual environment: `python -m virtualenv env`
 
-Activate virtual environment: `source env/bim/activate`
+Activate virtual environment: `source env/bin/activate`
 
 Install dependencies: `pip install -r requirements.txt`
 
