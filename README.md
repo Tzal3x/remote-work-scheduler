@@ -62,14 +62,14 @@ Run program: `python main.py`
 
 # Example 
 
-```
+```bash
 ##### Employee weekly work schedule #####
  Parameters: 
     Days working from home: 2
     Total number of employees: 67
     Minimum number of employees allowed in office: 35
     Maximum number of employees allowed in office: 46
-[#############################################
+#############################################
 Finding solution ... 
 Done!
 Solution found!
