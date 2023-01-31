@@ -49,7 +49,7 @@ for name in employees:
 
 # Installation
 
-> Python **2.7.17**
+> Python **3.8**
 
 Create virtual environment: `python -m virtualenv env`
 
