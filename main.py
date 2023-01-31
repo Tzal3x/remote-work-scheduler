@@ -12,6 +12,7 @@ from employees import (
 )
 from tabulate import tabulate
 from datetime import datetime
+from halo import Halo
 
 
 def main(args):
@@ -83,10 +84,11 @@ def main(args):
     """
     model.Minimize(sum(wfh[(name, d)] for name in employees for d in DAYS))
 
-    print("Finding solution ... ")
     solver.parameters.max_time_in_seconds = 2
+    spinner = Halo(text="Finding solution ... ", spinner='dots')
+    spinner.start()
     solver.Solve(model)
-    print("Done!")
+    spinner.stop()
 
     if 'INFEASIBLE' in solver.ResponseStats():
         print('[!] No feasible solution exists!')
@@ -147,11 +149,11 @@ class GeneralInfoStruct:
         self.max_employees_home = self.num_employees - args.min_employees_in_office
 
     def __repr__(self) -> str:
-        return f"""Employee weekly work schedule\nParameters:\n 
-    Days working from home: {self.num_days_wfh}
-    Total number of employees: {self.num_employees}
-    Minimum number of employees allowed in office: {self.min_employees_in_office}
-    Maximum number of employees allowed in office: {self.max_employees_in_office}
+        return f""">> Employee Weekly Work Scheduler <<\nParameters:
+    🏠 Days working from home per week: {self.num_days_wfh}
+    🧑‍💻 Total number of employees: {self.num_employees}
+    📉 Minimum number of employees allowed in office: {self.min_employees_in_office}
+    📈 Maximum number of employees allowed in office: {self.max_employees_in_office}
     """
 
 
