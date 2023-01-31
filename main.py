@@ -2,6 +2,7 @@
 """
 Solver for the employee job scheduling problem.
 """
+import argparse
 from ortools.sat.python import cp_model
 from employees import (
     employees,
@@ -13,29 +14,14 @@ from tabulate import tabulate
 from datetime import datetime
 
 
-"""--- Define parameters ----"""
-num_days_wfh = 2
-min_employees_in_office = 35
-max_employees_in_office = 46
-"""--------------------------"""
-
-
-def main():
+def main(args):
     """
     This is the main function
     """
+    DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 
-    num_employees = len(employees)
-    min_employees_home = num_employees - max_employees_in_office
-    max_employees_home = num_employees - min_employees_in_office
-    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
-    print("##### Employee weekly work schedule #####")
-    print(" Parameters: ")
-    print("    Days working from home: %i" % num_days_wfh)
-    print("    Total number of employees: %i" % num_employees)
-    print("    Minimum number of employees allowed in office: %i" % min_employees_in_office)
-    print("    Maximum number of employees allowed in office: %i" % max_employees_in_office)
-    print("[#############################################")
+    info = GeneralInfoStruct(args=args, total_employees=len(employees))
+    print(info)
 
     """Create the model"""
     model = cp_model.CpModel()
@@ -46,34 +32,34 @@ def main():
     """
     wfh = {}
     for name in employees:
-        for day in days:
+        for day in DAYS:
             wfh[(name, day)] = model.NewBoolVar('wfh_%s_d%s' % (name, day))
 
     """Create constraints"""
     # Each employee works X days from home.
     for name in employees:
         if not has_special_request(name):
-            model.Add(sum(wfh[(name, d)] for d in days) == num_days_wfh)
+            model.Add(sum(wfh[(name, d)] for d in DAYS) == info.num_days_wfh)
 
     """
     We must have X people in the office at all times.
     Therefore Y (= total number of employees - X) wfh each day.
     """
-    for day in days:
-        model.Add(sum(wfh[(name, day)] for name in employees) >= min_employees_home)
-    for day in days:
-        model.Add(sum(wfh[(name, day)] for name in employees) <= max_employees_home)
+    for day in DAYS:
+        model.Add(sum(wfh[(name, day)] for name in employees) >= info.min_employees_home)
+    for day in DAYS:
+        model.Add(sum(wfh[(name, day)] for name in employees) <= info.max_employees_home)
 
     # Employees that are on the same team, should be working from home on the same days
     for team in teams:
         members = [member for member in teams[team] if not has_special_request(member)]
-        for day in days:
+        for day in DAYS:
             for i in range(len(members)-1):
                 model.Add(wfh[(members[i], day)] == wfh[(members[i+1], day)])
 
     """Special Requests per person:"""
     for employee, requested_days in special_requests_for_wfh.items():
-        for day in days:
+        for day in DAYS:
             if day in requested_days:
                 model.Add(wfh[(employee, day)] == 1)
             else:
@@ -95,7 +81,7 @@ def main():
     Maximize the total number of employees in the office <=>
     <=> Minimize the number of employees working from home.
     """
-    model.Minimize(sum(wfh[(name, d)] for name in employees for d in days))
+    model.Minimize(sum(wfh[(name, d)] for name in employees for d in DAYS))
 
     print("Finding solution ... ")
     solver.parameters.max_time_in_seconds = 2
@@ -114,7 +100,7 @@ def main():
     schedule = []
     for name in employees:
         row = [name]
-        for day in days:
+        for day in DAYS:
             res = solver.Value(wfh[(name, day)])
             if res:
                 row.append("home")
@@ -125,8 +111,8 @@ def main():
 
     # Calculate totals per day:
     employees_per_day = []
-    headers = ['Name'] + days + ["TEAM"]
-    for day in days:
+    headers = ['Name'] + DAYS + ["TEAM"]
+    for day in DAYS:
         count_employees_wfh = 0
         count_employees_office = 0
         for name in employees:
@@ -139,20 +125,40 @@ def main():
     schedule.append(["TOTAL EMPLOYEES"] + employees_per_day)
     export_to_csv(schedule, headers)
 
-    print(
-        tabulate(schedule,
-                 headers=headers,
-                 tablefmt='orgtbl')
-    )
+    if args.print:
+        print(
+            tabulate(schedule,
+                    headers=headers,
+                    tablefmt='orgtbl')
+        )
+
+
+class GeneralInfoStruct:
+    def __init__(
+        self,
+        args,
+        total_employees
+    ) -> None:
+        self.num_days_wfh = args.num_days_wfh
+        self.min_employees_in_office = args.min_employees_in_office 
+        self.max_employees_in_office = args.max_employees_in_office 
+        self.num_employees = total_employees
+        self.min_employees_home = self.num_employees - args.max_employees_in_office
+        self.max_employees_home = self.num_employees - args.min_employees_in_office
+
+    def __repr__(self) -> str:
+        return f"""Employee weekly work schedule\nParameters:\n 
+    Days working from home: {self.num_days_wfh}
+    Total number of employees: {self.num_employees}
+    Minimum number of employees allowed in office: {self.min_employees_in_office}
+    Maximum number of employees allowed in office: {self.max_employees_in_office}
+    """
 
 
 def export_to_csv(schedule, headers):
     current_date = datetime.today().strftime('%Y-%m-%d-%H:%M')
-    filename = 'employee_schedule_{}_wfh_{}_m{}_M{}.csv'.format(
-        current_date,
-        num_days_wfh,
-        min_employees_in_office,
-        max_employees_in_office
+    filename = 'employee_schedule_{}.csv'.format(
+        current_date
     )
     with open(filename, 'w') as f:
         lines = [','.join(row) for row in schedule]
@@ -171,5 +177,34 @@ def has_special_request(name):
     return name in special_requests_for_wfh
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--num_days_wfh',
+        help='Number of days working from home',
+        default=2,
+        type=int)
+
+    parser.add_argument(
+        '--min_employees_in_office',
+        help='Minimum number of employees in office',
+        default=35)
+
+    parser.add_argument(
+        '--max_employees_in_office', 
+        help='Maximum number of employees in office',
+        default=46)
+
+    parser.add_argument(
+        '-p',
+        '--print', 
+        help='Print output to terminal',
+        action='store_true')
+
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
-    main()
+    args = parse_arguments()
+    main(args)
